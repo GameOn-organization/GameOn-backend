@@ -1,4 +1,3 @@
-# ci-cd-hmg.yml
 name: CI/CD Pipeline DEV
 
 on:
@@ -19,7 +18,6 @@ jobs:
       - run: npm install
       - run: npm install -g firebase-tools
       - run: npm run build
-
 
   deploy:
     needs: build

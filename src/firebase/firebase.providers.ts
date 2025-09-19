@@ -16,7 +16,10 @@ export const firebaseProviders = [
           const credential = admin.credential.cert({
             projectId: process.env.FB_PROJECT_ID as string,
             clientEmail: process.env.FB_CLIENT_EMAIL as string,
-            privateKey: (process.env.FB_PRIVATE_KEY as string).replace(/\\n/g, '\n'),
+            privateKey: (process.env.FB_PRIVATE_KEY as string).replace(
+              /\\n/g,
+              '\n',
+            ),
           });
           admin.initializeApp({
             credential,

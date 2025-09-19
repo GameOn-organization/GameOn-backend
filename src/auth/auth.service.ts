@@ -1,4 +1,9 @@
-import { Injectable, Inject, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { FIRESTORE } from '../firebase/firebase.providers';
 import { GoogleAuthDto, EmailSignupDto, EmailLoginDto } from './dto/auth.dto';
 import * as admin from 'firebase-admin';
@@ -28,8 +33,10 @@ export class AuthService {
         };
       }
 
-      const decodedToken = await admin.auth().verifyIdToken(googleAuthDto.idToken);
-      
+      const decodedToken = await admin
+        .auth()
+        .verifyIdToken(googleAuthDto.idToken);
+
       if (!decodedToken.email_verified) {
         throw new UnauthorizedException('Email not verified');
       }
@@ -50,7 +57,7 @@ export class AuthService {
         // O front pode continuar usando o mesmo idToken
         token: googleAuthDto.idToken,
       };
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid Google token');
     }
   }
@@ -83,7 +90,7 @@ export class AuthService {
         user,
         customToken, // Front deve trocar por idToken
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao criar usuário:', error);
       if (error.code === 'auth/email-already-exists') {
         throw new ConflictException('Email already registered');
@@ -96,7 +103,7 @@ export class AuthService {
     try {
       // Buscar usuário por email
       const userRecord = await admin.auth().getUserByEmail(emailLoginDto.email);
-      
+
       // Gerar custom token (front deve trocar por idToken com signInWithCustomToken)
       const customToken = await admin.auth().createCustomToken(userRecord.uid);
 
@@ -112,23 +119,27 @@ export class AuthService {
         user,
         customToken,
       };
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid email or password');
     }
   }
 
-  private async upsertUserProfile(user: { uid: string; email: string; name: string; picture?: string }) {
+  private async upsertUserProfile(user: {
+    uid: string;
+    email: string;
+    name: string;
+    picture?: string;
+  }) {
     const profileRef = this.db.collection('profiles').doc(user.uid);
     const profileDoc = await profileRef.get();
 
     if (!profileDoc.exists) {
-      
       const initialProfile = {
         id: user.uid,
         name: user.name || 'Usuário',
-        age: 18, 
+        age: 18,
         image: user.picture || null,
-        tags: [], 
+        tags: [],
       };
       await profileRef.set(initialProfile);
     } else {
@@ -136,7 +147,10 @@ export class AuthService {
       if (user.name && user.name !== profileDoc.data()?.name) {
         updates.name = user.name;
       }
-      if (user.picture !== undefined && user.picture !== profileDoc.data()?.image) {
+      if (
+        user.picture !== undefined &&
+        user.picture !== profileDoc.data()?.image
+      ) {
         updates.image = user.picture;
       }
       if (Object.keys(updates).length > 0) {

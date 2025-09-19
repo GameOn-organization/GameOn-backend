@@ -1,6 +1,21 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UsePipes, Query, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Delete,
+  UsePipes,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto, CreateUserSchema, ListUsersQuery, ListUsersQuerySchema } from './dto/create-user.dto';
+import {
+  CreateUserDto,
+  CreateUserSchema,
+  ListUsersQuery,
+  ListUsersQuerySchema,
+} from './dto/create-user.dto';
 import { UpdateUserDto, UpdateUserSchema } from './dto/update-user.dto';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { AuthGuard } from '../auth/auth.guard';
@@ -12,12 +27,14 @@ export class UsersController {
   @Post()
   @UseGuards(AuthGuard)
   @UsePipes(new ZodValidationPipe(CreateUserSchema))
-  create(@Body() createUserDto: CreateUserDto, @Request() req: any) {
+  create(createUserDto: CreateUserDto, req: any) {
     return this.usersService.create(createUserDto, req.user.uid);
   }
 
   @Get()
-  findAll(@Query(new ZodValidationPipe(ListUsersQuerySchema)) query: ListUsersQuery) {
+  findAll(
+    @Query(new ZodValidationPipe(ListUsersQuerySchema)) query: ListUsersQuery,
+  ) {
     return this.usersService.findAll(query);
   }
 
@@ -28,21 +45,21 @@ export class UsersController {
 
   @Get('me')
   @UseGuards(AuthGuard)
-  getMyProfile(@Request() req: any) {
+  getMyProfile(req: any) {
     return this.usersService.getMyProfile(req.user.uid);
   }
 
   @Patch('me')
   @UseGuards(AuthGuard)
   @UsePipes(new ZodValidationPipe(UpdateUserSchema))
-  updateMyProfile(@Body() updateUserDto: UpdateUserDto, @Request() req: any) {
+  updateMyProfile(updateUserDto: UpdateUserDto, req: any) {
     return this.usersService.updateMyProfile(req.user.uid, updateUserDto);
   }
 
   @Patch(':id')
   @UseGuards(AuthGuard)
   @UsePipes(new ZodValidationPipe(UpdateUserSchema))
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+  update(@Param('id') id: string, updateUserDto: UpdateUserDto) {
     return this.usersService.update(id, updateUserDto);
   }
 

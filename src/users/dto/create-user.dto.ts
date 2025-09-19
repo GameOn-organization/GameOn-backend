@@ -12,10 +12,7 @@ export type CreateUserDto = z.infer<typeof CreateUserSchema>;
 export const ListUsersQuerySchema = z.object({
   // retorna quem tem pelo menos uma das tags informadas
   tagsAny: z
-    .union([
-      z.string().min(1),
-      z.array(z.string().min(1)).nonempty(),
-    ])
+    .union([z.string().min(1), z.array(z.string().min(1)).nonempty()])
     .optional(),
   // retorna quem contém exatamente esta tag (equivalente a by-tag)
   tag: z.string().min(1).optional(),

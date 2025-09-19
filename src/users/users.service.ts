@@ -3,6 +3,7 @@ import { CreateUserDto, ListUsersQuery } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { FIRESTORE } from '../firebase/firebase.providers';
 import { Profile } from './entities/user.entity';
+import * as admin from 'firebase-admin';
 
 @Injectable()
 export class UsersService {
@@ -15,12 +16,20 @@ export class UsersService {
   }
 
   async findAll(query?: ListUsersQuery): Promise<Profile[]> {
-    let ref: FirebaseFirestore.Query = this.db.collection('profiles');
+    let ref: admin.firestore.Query = this.db.collection('profiles');
 
     const filters = [
       () => query?.tag && ref.where('tags', 'array-contains', query.tag),
-      () => query?.tagsAny && ref.where('tags', 'array-contains-any', 
-        (Array.isArray(query.tagsAny) ? query.tagsAny : [query.tagsAny]).slice(0, 10)),
+      () =>
+        query?.tagsAny &&
+        ref.where(
+          'tags',
+          'array-contains-any',
+          (Array.isArray(query.tagsAny)
+            ? query.tagsAny
+            : [query.tagsAny]
+          ).slice(0, 10),
+        ),
       () => query?.minAge !== undefined && ref.where('age', '>=', query.minAge),
       () => query?.maxAge !== undefined && ref.where('age', '<=', query.maxAge),
       () => query?.name && ref.where('name', '==', query.name),
@@ -63,7 +72,10 @@ export class UsersService {
     return this.findOne(uid);
   }
 
-  async updateMyProfile(uid: string, updateUserDto: UpdateUserDto): Promise<Profile> {
+  async updateMyProfile(
+    uid: string,
+    updateUserDto: UpdateUserDto,
+  ): Promise<Profile> {
     return this.update(uid, updateUserDto);
   }
 }

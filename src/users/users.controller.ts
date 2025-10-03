@@ -8,6 +8,9 @@ import {
   UsePipes,
   Query,
   UseGuards,
+  Body,
+  Request,
+  BadRequestException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import {
@@ -27,7 +30,7 @@ export class UsersController {
   @Post()
   @UseGuards(AuthGuard)
   @UsePipes(new ZodValidationPipe(CreateUserSchema))
-  create(createUserDto: CreateUserDto, req: any) {
+  create(@Body() createUserDto: CreateUserDto, @Request() req: any) {
     return this.usersService.create(createUserDto, req.user.uid);
   }
 
@@ -45,22 +48,32 @@ export class UsersController {
 
   @Get('me')
   @UseGuards(AuthGuard)
-  getMyProfile(req: any) {
+  getMyProfile(@Request() req: any) {
     return this.usersService.getMyProfile(req.user.uid);
   }
 
   @Patch('me')
   @UseGuards(AuthGuard)
   @UsePipes(new ZodValidationPipe(UpdateUserSchema))
-  updateMyProfile(updateUserDto: UpdateUserDto, req: any) {
+  updateMyProfile(@Body() updateUserDto: UpdateUserDto, @Request() req: any) {
     return this.usersService.updateMyProfile(req.user.uid, updateUserDto);
   }
 
   @Patch(':id')
   @UseGuards(AuthGuard)
-  @UsePipes(new ZodValidationPipe(UpdateUserSchema))
-  update(@Param('id') id: string, updateUserDto: UpdateUserDto) {
-    return this.usersService.update(id, updateUserDto);
+  update(@Param('id') id: string, @Body() updateUserDto: any) {
+    // Validação manual usando o schema Zod
+    const validationResult = UpdateUserSchema.safeParse(updateUserDto);
+    if (!validationResult.success) {
+      const flat = validationResult.error.flatten();
+      throw new BadRequestException({
+        message: 'Validation failed',
+        fieldErrors: flat.fieldErrors,
+        formErrors: flat.formErrors,
+      });
+    }
+    
+    return this.usersService.update(id, validationResult.data);
   }
 
   @Get('by-tag/:tag')

@@ -86,4 +86,11 @@ export class UsersController {
   remove(@Param('id') id: string) {
     return this.usersService.remove(id);
   }
+
+  @Get('debug/:id')
+  async debugUser(@Param('id') id: string) {
+    const user = await this.usersService.findOne(id);
+    console.log('Debug user data:', JSON.stringify(user, null, 2));
+    return user;
+  }
 }

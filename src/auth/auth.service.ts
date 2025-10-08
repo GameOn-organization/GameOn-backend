@@ -10,7 +10,7 @@ import * as admin from 'firebase-admin';
 
 @Injectable()
 export class AuthService {
-  constructor(@Inject(FIRESTORE) private readonly db: any) {}
+  constructor(@Inject(FIRESTORE) private readonly db: any) { }
 
   async googleAuth(googleAuthDto: GoogleAuthDto) {
     try {
@@ -79,6 +79,8 @@ export class AuthService {
         email: userRecord.email || emailSignupDto.email,
         name: emailSignupDto.name,
         picture: undefined,
+        phone: emailSignupDto.phone,
+        age: emailSignupDto.age,
       };
 
       // Criar perfil do usuário
@@ -131,6 +133,8 @@ export class AuthService {
     email: string;
     name: string;
     picture?: string;
+    phone?: string;
+    age?: number;
   }) {
     const profileRef = this.db.collection('profiles').doc(user.uid);
     const profileDoc = await profileRef.get();
@@ -139,7 +143,9 @@ export class AuthService {
       const initialProfile = {
         id: user.uid,
         name: user.name || 'Usuário',
-        age: 18,
+        age: user.age || 0,
+        email: user.email,
+        phone: user.phone || undefined,
         image: user.picture || null,
         tags: [],
       };
@@ -154,6 +160,9 @@ export class AuthService {
         user.picture !== profileDoc.data()?.image
       ) {
         updates.image = user.picture;
+      }
+      if (user.phone !== undefined && user.phone !== profileDoc.data()?.phone) {
+        updates.phone = user.phone;
       }
       if (Object.keys(updates).length > 0) {
         await profileRef.update(updates);

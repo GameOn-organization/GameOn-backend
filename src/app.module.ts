@@ -4,10 +4,11 @@ import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
 import { FirebaseModule } from './firebase/firebase.module';
 import { AuthModule } from './auth/auth.module';
+import { PostsModule } from './posts/posts.module';
 
 @Module({
-  imports: [FirebaseModule, AuthModule, UsersModule],
+  imports: [FirebaseModule, AuthModule, UsersModule, PostsModule],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

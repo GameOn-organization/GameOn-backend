@@ -64,7 +64,9 @@ export class AuthService {
 
   async emailSignup(emailSignupDto: EmailSignupDto) {
     try {
-      console.log('Tentando criar usuário:', emailSignupDto.email);
+      console.log('emailSignupDto recebido:', emailSignupDto);
+      console.log('Tipo do emailSignupDto:', typeof emailSignupDto);
+      console.log('Tentando criar usuário:', emailSignupDto?.email);
       const userRecord = await admin.auth().createUser({
         email: emailSignupDto.email,
         password: emailSignupDto.password,

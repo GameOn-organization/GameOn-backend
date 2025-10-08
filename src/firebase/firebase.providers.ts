@@ -30,7 +30,14 @@ export const firebaseProviders = [
           admin.initializeApp();
         }
       }
+      
       const db = admin.firestore();
+      
+      // Log para confirmar conexão com emulador
+      if (process.env.NODE_ENV === 'dev' && process.env.FIRESTORE_EMULATOR_HOST) {
+        console.log(`🔧 Firestore conectado ao emulador: ${process.env.FIRESTORE_EMULATOR_HOST}`);
+      }
+      
       return db;
     },
   },

@@ -1,4 +1,5 @@
-import { Controller, Post, UsePipes } from '@nestjs/common';
+import { Controller, Post, UsePipes, Get, Query, Res, Body } from '@nestjs/common';
+import { Response } from 'express';
 import { AuthService } from './auth.service';
 import {
   GoogleAuthDto,
@@ -16,19 +17,20 @@ export class AuthController {
 
   @Post('google')
   @UsePipes(new ZodValidationPipe(GoogleAuthSchema))
-  async googleAuth(googleAuthDto: GoogleAuthDto) {
+  async googleAuth(@Body() googleAuthDto: GoogleAuthDto) {
     return this.authService.googleAuth(googleAuthDto);
   }
 
   @Post('signup')
   @UsePipes(new ZodValidationPipe(EmailSignupSchema))
-  async emailSignup(emailSignupDto: EmailSignupDto) {
+  async emailSignup(@Body() emailSignupDto: EmailSignupDto) {
+    console.log('Controller recebeu:', emailSignupDto);
     return this.authService.emailSignup(emailSignupDto);
   }
 
   @Post('login')
   @UsePipes(new ZodValidationPipe(EmailLoginSchema))
-  async emailLogin(emailLoginDto: EmailLoginDto) {
+  async emailLogin(@Body() emailLoginDto: EmailLoginDto) {
     return this.authService.emailLogin(emailLoginDto);
   }
 }

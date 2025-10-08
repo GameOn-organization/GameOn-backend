@@ -1,10 +1,7 @@
 import { z } from 'zod';
+import { CreateUserSchema } from './create-user.dto';
 
-export const UpdateUserSchema = z.object({
-  name: z.string().min(1).optional(),
-  age: z.number().int().nonnegative().optional(),
-  image: z.any().nullable().optional(),
-  tags: z.array(z.string().min(1)).optional(),
-});
+// Schema de atualização estende o de criação, mas torna todos os campos opcionais
+export const UpdateUserSchema = CreateUserSchema.partial();
 
 export type UpdateUserDto = z.infer<typeof UpdateUserSchema>;

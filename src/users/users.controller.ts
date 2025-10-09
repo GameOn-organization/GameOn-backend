@@ -8,9 +8,9 @@ import {
   UsePipes,
   Query,
   UseGuards,
+  BadRequestException,
   Body,
   Request,
-  BadRequestException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import {
@@ -31,7 +31,7 @@ export class UsersController {
   @UseGuards(AuthGuard)
   @UsePipes(new ZodValidationPipe(CreateUserSchema))
   create(@Body() createUserDto: CreateUserDto, @Request() req: any) {
-    return this.usersService.create(createUserDto, req.user.uid);
+    return this.usersService.create(createUserDto, String(req.user.uid));
   }
 
   @Get()
@@ -49,14 +49,14 @@ export class UsersController {
   @Get('me')
   @UseGuards(AuthGuard)
   getMyProfile(@Request() req: any) {
-    return this.usersService.getMyProfile(req.user.uid);
+    return this.usersService.getMyProfile(String(req.user.uid));
   }
 
   @Patch('me')
   @UseGuards(AuthGuard)
   @UsePipes(new ZodValidationPipe(UpdateUserSchema))
   updateMyProfile(@Body() updateUserDto: UpdateUserDto, @Request() req: any) {
-    return this.usersService.updateMyProfile(req.user.uid, updateUserDto);
+    return this.usersService.updateMyProfile(String(req.user.uid), updateUserDto);
   }
 
   @Patch(':id')

@@ -165,7 +165,7 @@ export class AuthService {
         updates.phone = user.phone;
       }
       if (Object.keys(updates).length > 0) {
-        await profileRef.update(updates);
+        await profileRef.update(updates as Record<string, any>);
       }
     }
   }

@@ -11,11 +11,10 @@ import {
   UseGuards,
   Request,
   BadRequestException,
-  Req,
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto, CreatePostSchema, ListPostsQuery, ListPostsQuerySchema } from './dto/create-post.dto';
-import { UpdatePostDto, UpdatePostSchema } from './dto/update-post.dto';
+import { UpdatePostSchema } from './dto/update-post.dto';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { AuthGuard } from '../auth/auth.guard';
 
@@ -28,7 +27,7 @@ export class PostsController {
   @UsePipes(new ZodValidationPipe(CreatePostSchema))
   async create(@Body() createPostDto: CreatePostDto, @Request() req: any) {
     const authorName = req.user.name || 'Usuário'
-    return this.postsService.create(createPostDto, req.user.uid, authorName)
+    return this.postsService.create(createPostDto, String(req.user.uid), authorName)
   }
 
   @Get()
@@ -42,7 +41,7 @@ export class PostsController {
     @Request() req: any,
     @Query(new ZodValidationPipe(ListPostsQuerySchema)) query: ListPostsQuery,
   ) {
-    return this.postsService.getMyPosts(req.user.uid, query)
+    return this.postsService.getMyPosts(String(req.user.uid), query)
   }
 
   @Get(':id')
@@ -75,6 +74,6 @@ export class PostsController {
   @Delete('my-posts/:id')
   @UseGuards(AuthGuard)
   removeMyPost(@Param('id') id: string, @Request() req: any) {
-    return this.postsService.removeMyPost(id, req.user.uid)
+    return this.postsService.removeMyPost(id, String(req.user.uid))
   }
 }

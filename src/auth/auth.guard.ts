@@ -50,10 +50,10 @@ export class AuthGuard implements CanActivate {
           console.log('✅ AuthGuard - Token do emulador detectado');
           console.log('🔍 AuthGuard - Payload do token:', payload);
           request.user = {
-            uid: payload.uid || payload.sub,
-            email: payload.email || 'emulator@example.com',
+            uid: String(payload.uid || payload.sub),
+            email: String(payload.email || 'emulator@example.com'),
             emailVerified: true,
-            name: payload.name || 'Emulator User',
+            name: String(payload.name || 'Emulator User'),
             picture: payload.picture,
           };
           console.log('✅ AuthGuard - Usuário configurado:', request.user);
@@ -68,8 +68,8 @@ export class AuthGuard implements CanActivate {
 
       // Adiciona informações do usuário ao request
       request.user = {
-        uid: decodedToken.uid,
-        email: decodedToken.email,
+        uid: String(decodedToken.uid),
+        email: String(decodedToken.email),
         emailVerified: decodedToken.email_verified,
         name: decodedToken.name,
         picture: decodedToken.picture,

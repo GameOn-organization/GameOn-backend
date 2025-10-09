@@ -1,5 +1,4 @@
-import { Controller, Post, UsePipes, Get, Query, Res, Body } from '@nestjs/common';
-import { Response } from 'express';
+import { Controller, Post, UsePipes, Body } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
   GoogleAuthDto,

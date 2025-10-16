@@ -133,7 +133,28 @@ export class UsersService {
   }
 
   async remove(id: string): Promise<void> {
-    await this.db.collection('profiles').doc(id).delete();
+    try {
+      // 1. Deletar do Firestore
+      await this.db.collection('profiles').doc(id).delete();
+      console.log(`Perfil ${id} deletado do Firestore`);
+
+      // 2. Deletar do Firebase Authentication
+      try {
+        await admin.auth().deleteUser(id);
+        console.log(`Usuário ${id} deletado do Firebase Auth`);
+      } catch (authError: any) {
+        // Se o usuário não existir no Auth, apenas logamos
+        if (authError.code === 'auth/user-not-found') {
+          console.log(`Usuário ${id} não encontrado no Firebase Auth (já foi deletado)`);
+        } else {
+          console.error(`Erro ao deletar do Firebase Auth:`, authError);
+          throw authError;
+        }
+      }
+    } catch (error) {
+      console.error(`Erro ao deletar usuário ${id}:`, error);
+      throw error;
+    }
   }
 
   async getMyProfile(uid: string): Promise<Profile> {
@@ -145,5 +166,80 @@ export class UsersService {
     updateUserDto: UpdateUserDto,
   ): Promise<Profile> {
     return this.update(uid, updateUserDto);
+  }
+
+  async cleanupOrphanUsers(): Promise<{
+    message: string;
+    orphansFound: number;
+    deleted: number;
+    errors: number;
+    orphanUsers: Array<{ uid: string; email: string }>;
+  }> {
+    try {
+      console.log('🔍 Iniciando limpeza de usuários órfãos...');
+
+      // 1. Buscar todos os usuários do Firebase Auth
+      const listUsersResult = await admin.auth().listUsers(1000);
+      const authUsers = listUsersResult.users;
+      console.log(`Encontrados ${authUsers.length} usuários no Firebase Auth`);
+
+      // 2. Buscar todos os perfis do Firestore
+      const profilesSnapshot = await this.db.collection('profiles').get();
+      const firestoreUids = new Set(profilesSnapshot.docs.map((doc: any) => doc.id));
+      console.log(`Encontrados ${firestoreUids.size} perfis no Firestore`);
+
+      // 3. Identificar usuários órfãos (existem no Auth mas não no Firestore)
+      const orphanUsers = authUsers.filter(user => !firestoreUids.has(user.uid));
+
+      if (orphanUsers.length === 0) {
+        return {
+          message: 'Nenhum usuário órfão encontrado',
+          orphansFound: 0,
+          deleted: 0,
+          errors: 0,
+          orphanUsers: []
+        };
+      }
+
+      console.log(`Encontrados ${orphanUsers.length} usuários órfãos`);
+
+      // 4. Deletar usuários órfãos
+      let deletedCount = 0;
+      let errorCount = 0;
+      const orphansList: Array<any> = [];
+
+      for (const user of orphanUsers) {
+        try {
+          await admin.auth().deleteUser(user.uid);
+          console.log(`Deletado do Auth: ${user.email || 'Sem email'} (${user.uid})`);
+          deletedCount++;
+          orphansList.push({
+            uid: user.uid,
+            email: user.email || 'Sem email',
+            deleted: true
+          });
+        } catch (error: any) {
+          console.error(`Erro ao deletar ${user.email}: ${error.message}`);
+          errorCount++;
+          orphansList.push({
+            uid: user.uid,
+            email: user.email || 'Sem email',
+            deleted: false,
+            error: error.message
+          });
+        }
+      }
+
+      return {
+        message: `Limpeza concluída: ${deletedCount} usuários deletados, ${errorCount} erros`,
+        orphansFound: orphanUsers.length,
+        deleted: deletedCount,
+        errors: errorCount,
+        orphanUsers: orphansList
+      };
+    } catch (error: any) {
+      console.error('Erro na limpeza de usuários órfãos:', error);
+      throw error;
+    }
   }
 }

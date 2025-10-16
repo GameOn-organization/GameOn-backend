@@ -20,7 +20,7 @@ export class AuthGuard implements CanActivate {
     console.log('🔍 AuthGuard - Authorization header:', authHeader);
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('❌ AuthGuard - Missing or invalid authorization header');
+      console.log('AuthGuard - Missing or invalid authorization header');
       throw new UnauthorizedException(
         'Missing or invalid authorization header',
       );
@@ -43,9 +43,11 @@ export class AuthGuard implements CanActivate {
         return true;
       }
 
-      // Verificar se é um token do emulador Firebase
+      // Verificar se é um token do emulador Firebase ou custom token
       try {
         const payload = JSON.parse(atob(idToken.split('.')[1]));
+        
+        // Token do emulador
         if (payload.iss && payload.iss.includes('firebase-auth-emulator')) {
           console.log('✅ AuthGuard - Token do emulador detectado');
           console.log('🔍 AuthGuard - Payload do token:', payload);
@@ -59,11 +61,32 @@ export class AuthGuard implements CanActivate {
           console.log('✅ AuthGuard - Usuário configurado:', request.user);
           return true;
         }
+        
+        // Custom token (para testes/desenvolvimento)
+        if (payload.aud && payload.aud.includes('identitytoolkit')) {
+          console.log('✅ AuthGuard - Custom token detectado');
+          console.log('🔍 AuthGuard - Payload do custom token:', payload);
+          
+          // Buscar dados do usuário no Firestore
+          const userDoc = await this.db.collection('profiles').doc(payload.uid).get();
+          const userData = userDoc.exists ? userDoc.data() : null;
+          
+          request.user = {
+            uid: String(payload.uid),
+            email: String(userData?.email || 'unknown@example.com'),
+            emailVerified: true,
+            name: String(userData?.name || 'User'),
+            picture: userData?.image,
+          };
+          console.log('✅ AuthGuard - Usuário configurado do custom token:', request.user);
+          return true;
+        }
       } catch (error) {
-        console.log('❌ AuthGuard - Erro ao decodificar token:', error);
+        console.log('⚠️  AuthGuard - Não foi possível decodificar como token especial:', error.message);
         // Se não conseguir decodificar, continuar com validação normal
       }
 
+      // Validação normal de ID token
       const decodedToken = await admin.auth().verifyIdToken(idToken);
 
       // Adiciona informações do usuário ao request

@@ -140,15 +140,20 @@ export class AuthService {
     const profileDoc = await profileRef.get();
 
     if (!profileDoc.exists) {
-      const initialProfile = {
+      const initialProfile: Record<string, any> = {
         id: user.uid,
         name: user.name || 'Usuário',
         age: user.age || 0,
         email: user.email,
-        phone: user.phone || undefined,
         image: user.picture || null,
         tags: [],
       };
+      
+      // Só adicionar phone se tiver valor
+      if (user.phone !== undefined) {
+        initialProfile.phone = user.phone;
+      }
+      
       await profileRef.set(initialProfile);
     } else {
       const updates: any = {};

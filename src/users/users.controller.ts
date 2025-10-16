@@ -93,4 +93,10 @@ export class UsersController {
     console.log('Debug user data:', JSON.stringify(user, null, 2));
     return user;
   }
+
+  @Post('cleanup-orphans')
+  @UseGuards(AuthGuard)
+  async cleanupOrphanUsers(@Request() req: any) {
+    return this.usersService.cleanupOrphanUsers();
+  }
 }

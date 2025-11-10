@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const CreateUserSchema = z.object({
   name: z.string().min(1),
-  age: z.number().int().nonnegative(),
+  age: z.number().int().nonnegative().optional(),
   email: z.string().email('Invalid email format'),
   phone: z
     .string()

@@ -74,24 +74,19 @@ export class AuthService {
         emailVerified: false, // Usuário precisará verificar email
       });
 
-      const user = {
-        uid: userRecord.uid,
-        email: userRecord.email || emailSignupDto.email,
-        name: emailSignupDto.name,
-        picture: undefined,
-        phone: emailSignupDto.phone,
-        age: emailSignupDto.age,
-      };
-
-      // Criar perfil do usuário
-      await this.upsertUserProfile(user);
+      // Não cria o perfil completo ainda - apenas a conta de autenticação
+      // O perfil será criado depois pelo formulário usando o endpoint POST /users
 
       // Gerar custom token para login imediato
       const customToken = await admin.auth().createCustomToken(userRecord.uid);
 
       return {
         message: 'User created successfully',
-        user,
+        user: {
+          uid: userRecord.uid,
+          email: userRecord.email || emailSignupDto.email,
+          displayName: emailSignupDto.name,
+        },
         customToken, // Front deve trocar por idToken
       };
     } catch (error: any) {

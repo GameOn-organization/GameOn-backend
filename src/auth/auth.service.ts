@@ -64,15 +64,23 @@ export class AuthService {
 
   async emailSignup(emailSignupDto: EmailSignupDto) {
     try {
-      console.log('emailSignupDto recebido:', emailSignupDto);
-      console.log('Tipo do emailSignupDto:', typeof emailSignupDto);
-      console.log('Tentando criar usuário:', emailSignupDto?.email);
+      console.log('🟡 [AUTH SERVICE] emailSignup iniciado');
+      console.log('🟡 [AUTH SERVICE] Dados recebidos:', {
+        email: emailSignupDto.email,
+        name: emailSignupDto.name,
+        age: emailSignupDto.age,
+        phone: emailSignupDto.phone ? '***' : undefined
+      });
+      
+      console.log('🟡 [AUTH SERVICE] Criando usuário no Firebase Auth...');
       const userRecord = await admin.auth().createUser({
         email: emailSignupDto.email,
         password: emailSignupDto.password,
         displayName: emailSignupDto.name,
         emailVerified: false, // Usuário precisará verificar email
       });
+      
+      console.log('✅ [AUTH SERVICE] Usuário criado no Firebase Auth:', userRecord.uid);
 
       const user = {
         uid: userRecord.uid,
@@ -84,19 +92,31 @@ export class AuthService {
       };
 
       // Criar perfil do usuário
+      console.log('🟡 [AUTH SERVICE] Criando perfil no Firestore...');
       await this.upsertUserProfile(user);
+      console.log('✅ [AUTH SERVICE] Perfil criado no Firestore');
 
       // Gerar custom token para login imediato
+      console.log('🟡 [AUTH SERVICE] Gerando custom token...');
       const customToken = await admin.auth().createCustomToken(userRecord.uid);
+      console.log('✅ [AUTH SERVICE] Custom token gerado');
 
-      return {
+      const result = {
         message: 'User created successfully',
         user,
         customToken, // Front deve trocar por idToken
       };
+      
+      console.log('✅ [AUTH SERVICE] Signup concluído com sucesso');
+      return result;
     } catch (error: any) {
-      console.error('Erro ao criar usuário:', error);
+      console.error('❌ [AUTH SERVICE] Erro ao criar usuário:', error);
+      console.error('❌ [AUTH SERVICE] Código do erro:', error.code);
+      console.error('❌ [AUTH SERVICE] Mensagem:', error.message);
+      console.error('❌ [AUTH SERVICE] Stack:', error.stack);
+      
       if (error.code === 'auth/email-already-exists') {
+        console.error('❌ [AUTH SERVICE] Email já existe');
         throw new ConflictException('Email already registered');
       }
       throw new UnauthorizedException('Failed to create user');

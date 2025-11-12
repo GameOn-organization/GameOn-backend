@@ -88,7 +88,18 @@ export const CreateUserSchema = z.object({
       z.undefined(),
     ])
     .optional(),
-  image: z.any().nullable().optional(),
+  // Campo image mantido para compatibilidade retroativa, mas images[] é o preferido
+  image: z.string().nullable().optional(),
+  // Novo campo: array de imagens (compatível com frontend)
+  images: z.array(z.string().nullable()).default([]).optional(),
+  // Novo campo: descrição do perfil
+  descricao: z.string().max(500).optional(),
+  // Novo campo: gênero/sexo (m, f, nb)
+  sexo: z.enum(['m', 'f', 'nb']).optional(),
+  // Novo campo: localização do usuário
+  localizacao: z.string().max(200).optional(),
+  // Novo campo: wallpaper do perfil
+  wallpaper: z.string().nullable().optional(),
   tags: z.array(z.string().min(1)).default([]),
 });
 

@@ -10,24 +10,40 @@ export class UsersService {
   constructor(@Inject(FIRESTORE) private readonly db: any) { }
 
   async create(createUserDto: CreateUserDto, uid: string): Promise<Profile> {
+    // Se images[] foi fornecido, usar ele; caso contrário, usar image (compatibilidade retroativa)
+    const imagesArray = createUserDto.images && createUserDto.images.length > 0
+      ? createUserDto.images
+      : (createUserDto.image ? [createUserDto.image] : []);
+
     const profile: Profile = {
       id: uid,
       name: createUserDto.name,
       age: createUserDto.age,
       phone: createUserDto.phone,
       email: createUserDto.email,
-      image: createUserDto.image || null,
+      // Manter image para compatibilidade retroativa (primeira imagem do array ou image antigo)
+      image: imagesArray[0] || createUserDto.image || null,
+      // Novo campo: array de imagens
+      images: imagesArray,
+      // Novo campo: descrição
+      descricao: createUserDto.descricao,
+      // Novo campo: sexo/gênero
+      sexo: createUserDto.sexo,
+      // Novo campo: localização
+      localizacao: createUserDto.localizacao,
+      // Novo campo: wallpaper
+      wallpaper: createUserDto.wallpaper || null,
       tags: createUserDto.tags || []
     } as Profile;
-    
+
     console.log('DEBUG - Profile sendo salvo no Firestore:', JSON.stringify(profile, null, 2));
     await this.db.collection('profiles').doc(uid).set(profile);
-    
+
     // Verificar o que foi salvo
     const savedDoc = await this.db.collection('profiles').doc(uid).get();
     const savedData = savedDoc.data();
     console.log('DEBUG - Dados recuperados do Firestore:', JSON.stringify(savedData, null, 2));
-    
+
     return profile;
   }
 
@@ -58,7 +74,7 @@ export class UsersService {
       const data = d.data();
       console.log('DEBUG - Dados brutos do Firestore:', JSON.stringify(data, null, 2));
       console.log('DEBUG - Tipo do age:', typeof data.age, 'Valor:', data.age);
-      
+
       const profile = {
         id: data.id,
         name: data.name,
@@ -66,6 +82,11 @@ export class UsersService {
         email: data.email,
         phone: data.phone || undefined,
         image: data.image || null,
+        images: data.images || (data.image ? [data.image] : []),
+        descricao: data.descricao || undefined,
+        sexo: data.sexo || undefined,
+        localizacao: data.localizacao || undefined,
+        wallpaper: data.wallpaper || null,
         tags: data.tags || [],
       };
 
@@ -85,6 +106,11 @@ export class UsersService {
       email: data.email,
       phone: data.phone || undefined,
       image: data.image || null,
+      images: data.images || (data.image ? [data.image] : []),
+      descricao: data.descricao || undefined,
+      sexo: data.sexo || undefined,
+      localizacao: data.localizacao || undefined,
+      wallpaper: data.wallpaper || null,
       tags: data.tags || [],
     };
 
@@ -95,7 +121,14 @@ export class UsersService {
     const ref = this.db.collection('profiles').doc(id);
     const doc = await ref.get();
     if (!doc.exists) throw new NotFoundException('Profile not found');
-    await ref.update(updateUserDto as Record<string, unknown>);
+
+    // Se images[] foi fornecido, atualizar também o campo image (compatibilidade)
+    const updateData: any = { ...updateUserDto };
+    if (updateUserDto.images && updateUserDto.images.length > 0) {
+      updateData.image = updateUserDto.images[0] || null;
+    }
+
+    await ref.update(updateData as Record<string, unknown>);
     const updated = await ref.get();
     const data = updated.data();
     const profile = {
@@ -105,6 +138,11 @@ export class UsersService {
       email: data.email,
       phone: data.phone || undefined,
       image: data.image || null,
+      images: data.images || (data.image ? [data.image] : []),
+      descricao: data.descricao || undefined,
+      sexo: data.sexo || undefined,
+      localizacao: data.localizacao || undefined,
+      wallpaper: data.wallpaper || null,
       tags: data.tags || [],
     };
 
@@ -125,6 +163,11 @@ export class UsersService {
         email: data.email,
         phone: data.phone || undefined,
         image: data.image || null,
+        images: data.images || (data.image ? [data.image] : []),
+        descricao: data.descricao || undefined,
+        sexo: data.sexo || undefined,
+        localizacao: data.localizacao || undefined,
+        wallpaper: data.wallpaper || null,
         tags: data.tags || [],
       };
 
@@ -176,7 +219,7 @@ export class UsersService {
     orphanUsers: Array<{ uid: string; email: string }>;
   }> {
     try {
-      console.log('🔍 Iniciando limpeza de usuários órfãos...');
+      console.log(' Iniciando limpeza de usuários órfãos...');
 
       // 1. Buscar todos os usuários do Firebase Auth
       const listUsersResult = await admin.auth().listUsers(1000);

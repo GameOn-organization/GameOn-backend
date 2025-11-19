@@ -4,17 +4,27 @@ export const GoogleAuthSchema = z.object({
   idToken: z.string().min(1, 'ID token is required'),
 });
 
-export const EmailSignupSchema = z.object({
-  email: z.string().email('Invalid email format'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  name: z.string().min(1, 'Name is required'),
-  age: z.number().int().nonnegative().optional(),
-  phone: z
-    .string()
-    .min(1, 'Telefone é obrigatório')
-    .regex(/^\(\d{2}\)\s\d{4,5}-\d{4}$/, 'Formato: (XX) XXXXX-XXXX')
-    .refine((phone) => {
-      const ddd = phone.substring(1, 3);
+export const EmailSignupSchema = z
+  .object({
+    email: z.string().email('Invalid email format'),
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+    name: z.string().min(1, 'Name is required'),
+    age: z.number().int().nonnegative().optional(),
+    phone: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // Se phone não foi fornecido ou é string vazia, está OK
+      if (!data.phone || data.phone === '') {
+        return true;
+      }
+      // Se phone foi fornecido, validar formato
+      const phoneRegex = /^\(\d{2}\)\s\d{4,5}-\d{4}$/;
+      if (!phoneRegex.test(data.phone)) {
+        return false;
+      }
+      // Validar DDD
+      const ddd = data.phone.substring(1, 3);
       const validDDDs = [
         '11', '12', '13', '14', '15', '16', '17', '18', '19', // SP
         '21', '22', '24', // RJ
@@ -44,14 +54,18 @@ export const EmailSignupSchema = z.object({
         '96', // AP
         '98', '99', // MA
       ];
-      return validDDDs.includes(ddd);
-    }, 'DDD inválido')
-    .refine((phone) => {
-      const number = phone.replace(/\D/g, '');
+      if (!validDDDs.includes(ddd)) {
+        return false;
+      }
+      // Validar tamanho
+      const number = data.phone.replace(/\D/g, '');
       return number.length === 10 || number.length === 11;
-    }, 'Telefone deve ter 10 ou 11 dígitos')
-    .optional(),
-});
+    },
+    {
+      message: 'Telefone inválido. Formato esperado: (XX) XXXXX-XXXX',
+      path: ['phone'],
+    }
+  );
 
 export const EmailLoginSchema = z.object({
   email: z.string().email('Invalid email format'),

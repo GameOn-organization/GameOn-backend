@@ -5,7 +5,7 @@ export type Notification = {
   fromUsername: string; // Nome do usuário que gerou a notificação
   fromUserAvatar?: string; // Avatar do usuário que gerou a notificação
   action: string; // Ação realizada (ex: "Curtiu sua publicação", "NOVO MATCH!", etc)
-  category: string; // Categoria: "MATCH!", "Equipes", "Eventos", "Comunidade"
+  category: string; // Categoria: "MATCH", "Equipes", "Eventos", "Comunidade"
   thumbnail?: string; // URL da thumbnail (opcional)
   read: boolean; // Se a notificação foi lida
   createdAt: Date;

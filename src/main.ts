@@ -9,6 +9,22 @@ async function bootstrap() {
   console.log(' [MAIN] Iniciando servidor NestJS...');
   console.log(' [MAIN] Porta:', port);
 
+  // Configurar serialização JSON para converter Date para ISO strings
+  app.use((req, res, next) => {
+    const originalJson = res.json;
+    res.json = function(body: any) {
+      // Converter objetos Date para ISO strings antes de serializar
+      const convertedBody = JSON.parse(JSON.stringify(body, (key, value) => {
+        if (value instanceof Date) {
+          return value.toISOString();
+        }
+        return value;
+      }));
+      return originalJson.call(this, convertedBody);
+    };
+    next();
+  });
+
   // CORS configurado para aceitar requisições de qualquer origem (desenvolvimento)
   app.enableCors({
     origin: true, // Aceita qualquer origem

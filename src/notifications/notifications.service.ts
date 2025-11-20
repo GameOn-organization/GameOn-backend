@@ -9,65 +9,270 @@ import * as admin from 'firebase-admin';
 export class NotificationsService {
   constructor(@Inject(FIRESTORE) private readonly db: any) {}
 
+  /**
+   * Converte Timestamps do Firestore para Date ou ISO string
+   */
+  private convertTimestamp(timestamp: any): Date {
+    if (!timestamp) return new Date();
+    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+      return timestamp.toDate();
+    }
+    if (timestamp instanceof Date) {
+      return timestamp;
+    }
+    if (typeof timestamp === 'string') {
+      return new Date(timestamp);
+    }
+    return new Date();
+  }
+
+  /**
+   * Converte um documento do Firestore para Notification, convertendo Timestamps
+   */
+  private convertDocumentToNotification(data: any): Notification {
+    return {
+      ...data,
+      createdAt: this.convertTimestamp(data.createdAt),
+      updatedAt: this.convertTimestamp(data.updatedAt),
+    } as Notification;
+  }
+
+  /**
+   * Remove campos undefined de um objeto para evitar erros no Firestore
+   */
+  private removeUndefinedFields(obj: any): any {
+    const cleaned: any = {};
+    for (const key in obj) {
+      if (obj[key] !== undefined) {
+        cleaned[key] = obj[key];
+      }
+    }
+    return cleaned;
+  }
+
   async create(createNotificationDto: CreateNotificationDto): Promise<Notification> {
     const now = new Date();
-    const notification: Notification = {
+    const notification: any = {
       id: '', // definido pelo FIRESTORE
       userId: createNotificationDto.userId,
       fromUserId: createNotificationDto.fromUserId,
       fromUsername: createNotificationDto.fromUsername,
-      fromUserAvatar: createNotificationDto.fromUserAvatar,
       action: createNotificationDto.action,
       category: createNotificationDto.category,
-      thumbnail: createNotificationDto.thumbnail,
       read: false,
       createdAt: now,
       updatedAt: now,
-      relatedPostId: createNotificationDto.relatedPostId,
-      relatedCommentId: createNotificationDto.relatedCommentId,
     };
 
-    const docRef = await this.db.collection('notifications').add(notification);
-    const createdNotification = { ...notification, id: docRef.id };
+    // Adicionar campos opcionais apenas se estiverem definidos
+    if (createNotificationDto.fromUserAvatar) {
+      notification.fromUserAvatar = createNotificationDto.fromUserAvatar;
+    }
+    if (createNotificationDto.thumbnail) {
+      notification.thumbnail = createNotificationDto.thumbnail;
+    }
+    if (createNotificationDto.relatedPostId) {
+      notification.relatedPostId = createNotificationDto.relatedPostId;
+    }
+    if (createNotificationDto.relatedCommentId) {
+      notification.relatedCommentId = createNotificationDto.relatedCommentId;
+    }
+
+    // Remover campos undefined antes de salvar no Firestore
+    const cleanedNotification = this.removeUndefinedFields(notification);
+
+    const docRef = await this.db.collection('notifications').add(cleanedNotification);
+    const createdNotification = { ...cleanedNotification, id: docRef.id };
 
     await docRef.update({ id: docRef.id });
 
-    return createdNotification;
+    // Buscar o documento criado para garantir que os Timestamps sejam convertidos corretamente
+    const createdDoc = await docRef.get();
+    const data = createdDoc.data();
+    return this.convertDocumentToNotification(data);
   }
 
   async findAll(query?: ListNotificationsQuery): Promise<Notification[]> {
-    let ref: admin.firestore.Query = this.db.collection('notifications');
+    try {
+      console.log('🔍 [NOTIFICATIONS SERVICE] ========== INÍCIO findAll ==========');
+      console.log('🔍 [NOTIFICATIONS SERVICE] Query recebida:', JSON.stringify(query, null, 2));
+      console.log('🔍 [NOTIFICATIONS SERVICE] query?.category:', query?.category);
+      console.log('🔍 [NOTIFICATIONS SERVICE] typeof query?.category:', typeof query?.category);
+      console.log('🔍 [NOTIFICATIONS SERVICE] query?.category === "MATCH":', query?.category === 'MATCH');
+      console.log('🔍 [NOTIFICATIONS SERVICE] query?.category === "Equipes":', query?.category === 'Equipes');
 
-    // Aplicar filtros
-    if (query?.userId) {
-      ref = ref.where('userId', '==', query.userId);
+      let ref: admin.firestore.Query = this.db.collection('notifications');
+
+      // Aplicar filtros
+      if (query?.userId) {
+        ref = ref.where('userId', '==', query.userId);
+        console.log('✅ [NOTIFICATIONS SERVICE] Filtro userId aplicado:', query.userId);
+      }
+      
+      // Aplicar filtro de categoria apenas se fornecida e válida
+      const category = query?.category;
+      console.log('🔍 [NOTIFICATIONS SERVICE] Variável category:', category);
+      console.log('🔍 [NOTIFICATIONS SERVICE] category existe?', !!category);
+      console.log('🔍 [NOTIFICATIONS SERVICE] category é string?', typeof category === 'string');
+      
+      if (category) {
+        console.log('🔍 [NOTIFICATIONS SERVICE] Verificando se category é válida...');
+        const isValidCategory = category === 'MATCH' || category === 'Equipes' || category === 'Eventos' || category === 'Comunidade';
+        console.log('🔍 [NOTIFICATIONS SERVICE] category é válida?', isValidCategory);
+        
+        if (isValidCategory) {
+          ref = ref.where('category', '==', category);
+          console.log('✅ [NOTIFICATIONS SERVICE] Filtro category APLICADO no Firestore:', category);
+        } else {
+          console.warn('⚠️ [NOTIFICATIONS SERVICE] Category inválida, não aplicando filtro:', category);
+        }
+      } else {
+        console.log('⚠️ [NOTIFICATIONS SERVICE] Filtro category NÃO aplicado - category é:', category);
+      }
+      
+      if (query?.read !== undefined) {
+        ref = ref.where('read', '==', query.read);
+        console.log('✅ [NOTIFICATIONS SERVICE] Filtro read aplicado:', query.read);
+      }
+
+      // IMPORTANTE: A ordem dos filtros importa no Firestore!
+      // Se houver múltiplos where + orderBy, pode precisar de índice composto
+      
+      // Aplicar ordenação (mais recentes primeiro)
+      ref = ref.orderBy('createdAt', 'desc');
+      console.log('🔍 [NOTIFICATIONS SERVICE] orderBy aplicado: createdAt desc');
+
+      // Aplicar paginação (Firestore não suporta offset diretamente, então usamos apenas limit)
+      const limit = query?.limit || 50;
+      ref = ref.limit(limit);
+      console.log('🔍 [NOTIFICATIONS SERVICE] limit aplicado:', limit);
+
+      console.log('🔍 [NOTIFICATIONS SERVICE] Executando query do Firestore...');
+      console.log('🔍 [NOTIFICATIONS SERVICE] Query summary - userId:', query?.userId, 'category:', query?.category, 'read:', query?.read);
+      
+      const snap = await ref.get();
+      console.log('🔍 [NOTIFICATIONS SERVICE] ✅ Query executada com sucesso');
+      console.log('🔍 [NOTIFICATIONS SERVICE] Documentos encontrados pelo Firestore:', snap.size);
+      
+      if (snap.size === 0) {
+        console.warn('⚠️ [NOTIFICATIONS SERVICE] ATENÇÃO: Nenhum documento encontrado!');
+        console.warn('⚠️ [NOTIFICATIONS SERVICE] Verifique se:');
+        console.warn('⚠️ [NOTIFICATIONS SERVICE] 1. O userId está correto:', query?.userId);
+        console.warn('⚠️ [NOTIFICATIONS SERVICE] 2. A category está correta:', query?.category);
+        console.warn('⚠️ [NOTIFICATIONS SERVICE] 3. Existem notificações no Firestore com essa combinação');
+      }
+      
+      // Converter Timestamps do Firestore para Date
+      const results = snap.docs.map((d) => {
+        const data = d.data();
+        const notification = this.convertDocumentToNotification(data);
+        console.log('📄 [NOTIFICATIONS SERVICE] Doc:', {
+          id: notification.id,
+          category: notification.category,
+          userId: notification.userId,
+          action: notification.action.substring(0, 30) + '...'
+        });
+        return notification;
+      });
+      
+      console.log('🔍 [NOTIFICATIONS SERVICE] ========== FIM findAll ==========');
+      console.log('🔍 [NOTIFICATIONS SERVICE] Total de resultados retornados:', results.length);
+      if (results.length > 0) {
+        const categories = results.map(r => r.category);
+        const uniqueCategories = [...new Set(categories)];
+        console.log('🔍 [NOTIFICATIONS SERVICE] Categorias únicas encontradas:', uniqueCategories);
+        console.log('🔍 [NOTIFICATIONS SERVICE] Contagem por categoria:', 
+          uniqueCategories.map(cat => `${cat}: ${categories.filter(c => c === cat).length}`).join(', ')
+        );
+      }
+      
+      return results;
+    } catch (error: any) {
+      console.error('❌ [NOTIFICATIONS SERVICE] Erro ao buscar notificações:', error);
+      console.error('❌ [NOTIFICATIONS SERVICE] Código do erro:', error.code);
+      console.error('❌ [NOTIFICATIONS SERVICE] Mensagem:', error.message);
+      console.error('❌ [NOTIFICATIONS SERVICE] Query que causou o erro:', JSON.stringify(query, null, 2));
+      
+      // Se o erro for relacionado a índice faltando, tentar sem orderBy
+      if (error.code === 9 || error.message?.includes('index') || error.message?.includes('requires an index')) {
+        console.warn('⚠️ [NOTIFICATIONS SERVICE] Índice composto faltando, tentando sem orderBy...');
+        try {
+          let ref: admin.firestore.Query = this.db.collection('notifications');
+          
+          // Aplicar os mesmos filtros, mas sem orderBy
+          if (query?.userId) {
+            ref = ref.where('userId', '==', query.userId);
+            console.log('✅ [NOTIFICATIONS SERVICE] (Fallback) Filtro userId aplicado:', query.userId);
+          }
+          
+          // Aplicar filtro de categoria
+          const category = query?.category;
+          if (category && (category === 'MATCH' || category === 'Equipes' || category === 'Eventos' || category === 'Comunidade')) {
+            ref = ref.where('category', '==', category);
+            console.log('✅ [NOTIFICATIONS SERVICE] (Fallback) Filtro category aplicado:', category);
+          }
+          
+          if (query?.read !== undefined) {
+            ref = ref.where('read', '==', query.read);
+            console.log('✅ [NOTIFICATIONS SERVICE] (Fallback) Filtro read aplicado:', query.read);
+          }
+          
+          const limit = query?.limit || 50;
+          ref = ref.limit(limit);
+          
+          const snap = await ref.get();
+          console.log('✅ [NOTIFICATIONS SERVICE] (Fallback) Documentos encontrados:', snap.size);
+          
+          const results = snap.docs.map((d) => this.convertDocumentToNotification(d.data()));
+          
+          // Ordenar manualmente por createdAt
+          return results.sort((a, b) => {
+            const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+            const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+            return dateB - dateA; // Descendente
+          });
+        } catch (fallbackError: any) {
+          console.error('❌ [NOTIFICATIONS SERVICE] Fallback também falhou:', fallbackError.message);
+          throw fallbackError;
+        }
+      }
+      throw error;
     }
-    if (query?.category) {
-      ref = ref.where('category', '==', query.category);
-    }
-    if (query?.read !== undefined) {
-      ref = ref.where('read', '==', query.read);
-    }
-
-    // Aplicar ordenação (mais recentes primeiro)
-    ref = ref.orderBy('createdAt', 'desc');
-
-    // Aplicar paginação (Firestore não suporta offset diretamente, então usamos apenas limit)
-    const limit = query?.limit || 50;
-    ref = ref.limit(limit);
-
-    const snap = await ref.get();
-    return snap.docs.map((d) => d.data() as Notification);
   }
 
   async findByUser(userId: string, query?: ListNotificationsQuery): Promise<Notification[]> {
-    const queryWithUser: ListNotificationsQuery = query
-      ? { ...query, userId }
-      : {
-          userId,
-          limit: 50,
-          offset: 0,
-        };
+    console.log('🔍 [NOTIFICATIONS SERVICE] ========== INÍCIO findByUser ==========');
+    console.log('🔍 [NOTIFICATIONS SERVICE] userId recebido:', userId);
+    console.log('🔍 [NOTIFICATIONS SERVICE] query recebida:', JSON.stringify(query, null, 2));
+    console.log('🔍 [NOTIFICATIONS SERVICE] query?.category:', query?.category);
+    console.log('🔍 [NOTIFICATIONS SERVICE] query?.category type:', typeof query?.category);
+    console.log('🔍 [NOTIFICATIONS SERVICE] query tem category?', query && 'category' in query);
+    
+    // Criar query com userId, mas preservar category apenas se existir explicitamente
+    const queryWithUser: ListNotificationsQuery = {
+      userId, // Sempre incluir userId para filtrar por usuário
+      limit: query?.limit ?? 50,
+      offset: query?.offset ?? 0,
+    };
+    
+    // Apenas incluir category se estiver definida explicitamente na query
+    if (query && 'category' in query && query.category !== undefined) {
+      queryWithUser.category = query.category;
+      console.log('✅ [NOTIFICATIONS SERVICE] Category incluída na query:', query.category);
+    } else {
+      console.log('⚠️ [NOTIFICATIONS SERVICE] Category NÃO incluída na query (retornando todas as categorias)');
+    }
+    
+    // Apenas incluir read se estiver definido explicitamente
+    if (query && 'read' in query && query.read !== undefined) {
+      queryWithUser.read = query.read;
+      console.log('✅ [NOTIFICATIONS SERVICE] Read incluído na query:', query.read);
+    }
+    
+    console.log('🔍 [NOTIFICATIONS SERVICE] queryWithUser que será passada para findAll:', JSON.stringify(queryWithUser, null, 2));
+    console.log('🔍 [NOTIFICATIONS SERVICE] queryWithUser.category:', queryWithUser.category);
+    console.log('🔍 [NOTIFICATIONS SERVICE] queryWithUser.userId:', queryWithUser.userId);
+    console.log('🔍 [NOTIFICATIONS SERVICE] queryWithUser tem category?', 'category' in queryWithUser);
 
     return this.findAll(queryWithUser);
   }
@@ -75,7 +280,7 @@ export class NotificationsService {
   async findOne(id: string): Promise<Notification> {
     const doc = await this.db.collection('notifications').doc(id).get();
     if (!doc.exists) throw new NotFoundException('Notification not found');
-    return doc.data() as Notification;
+    return this.convertDocumentToNotification(doc.data());
   }
 
   async update(id: string, updateNotificationDto: UpdateNotificationDto): Promise<Notification> {
@@ -91,7 +296,7 @@ export class NotificationsService {
 
     await ref.update(updateData as Record<string, unknown>);
     const updated = await ref.get();
-    return updated.data() as Notification;
+    return this.convertDocumentToNotification(updated.data());
   }
 
   async markAsRead(id: string): Promise<Notification> {

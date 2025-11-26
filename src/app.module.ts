@@ -8,9 +8,10 @@ import { PostsModule } from './posts/posts.module';
 import { MessagesModule } from './messages/messages.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { CommentsModule } from './comments/comments.module';
 
 @Module({
-  imports: [FirebaseModule, AuthModule, UsersModule, PostsModule, MessagesModule, ConversationsModule, NotificationsModule],
+  imports: [FirebaseModule, AuthModule, UsersModule, PostsModule, CommentsModule, MessagesModule, ConversationsModule, NotificationsModule],
   controllers: [AppController],
   providers: [AppService],
 })

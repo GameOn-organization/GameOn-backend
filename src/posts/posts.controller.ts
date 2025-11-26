@@ -76,4 +76,10 @@ export class PostsController {
   removeMyPost(@Param('id') id: string, @Request() req: any) {
     return this.postsService.removeMyPost(id, String(req.user.uid))
   }
+
+  @Post(':id/like')
+  @UseGuards(AuthGuard)
+  likePost(@Param('id') id: string, @Request() req: any) {
+    return this.postsService.likePost(id, String(req.user.uid))
+  }
 }

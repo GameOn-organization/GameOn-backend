@@ -41,11 +41,6 @@ export class UsersController {
     return this.usersService.findAll(query);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(id);
-  }
-
   @Get('me')
   @UseGuards(AuthGuard)
   getMyProfile(@Request() req: any) {
@@ -57,6 +52,11 @@ export class UsersController {
   @UsePipes(new ZodValidationPipe(UpdateUserSchema))
   updateMyProfile(@Body() updateUserDto: UpdateUserDto, @Request() req: any) {
     return this.usersService.updateMyProfile(String(req.user.uid), updateUserDto);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.usersService.findOne(id);
   }
 
   @Patch(':id')

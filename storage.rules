@@ -1,0 +1,56 @@
+rules_version = '2';
+
+// Storage rules para GameOn
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Função para verificar se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Função para verificar se o usuário é o dono do recurso
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Função para validar tamanho da imagem (máximo 5MB)
+    function isValidImageSize() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+    
+    // Função para validar tipo de arquivo (apenas imagens)
+    function isValidImageType() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Regras para perfis de usuários
+    match /profiles/{userId}/{allPaths=**} {
+      // Leitura: qualquer usuário autenticado pode ler
+      allow read: if isAuthenticated();
+      
+      // Escrita: apenas o próprio usuário pode fazer upload/delete
+      allow write: if isAuthenticated() 
+                   && isOwner(userId)
+                   && isValidImageSize()
+                   && isValidImageType();
+    }
+    
+    // Regras para posts (se necessário no futuro)
+    match /posts/{postId}/{allPaths=**} {
+      // Leitura: qualquer usuário autenticado pode ler
+      allow read: if isAuthenticated();
+      
+      // Escrita: apenas usuários autenticados podem fazer upload
+      allow write: if isAuthenticated()
+                   && isValidImageSize()
+                   && isValidImageType();
+    }
+    
+    // Bloquear acesso a qualquer outro caminho
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

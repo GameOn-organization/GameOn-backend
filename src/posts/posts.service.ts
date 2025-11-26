@@ -11,11 +11,31 @@ export class PostsService {
 
   async create(createPostDto: CreatePostDto, uid: string, authorName: string): Promise<Post> {
     const now = new Date()
+    
+    // Buscar foto do perfil do autor
+    let authorImage: string | null = null
+    try {
+      const profileDoc = await this.db.collection('profiles').doc(uid).get()
+      if (profileDoc.exists) {
+        const profileData = profileDoc.data()
+        // Preferir images[0], se não tiver, usar image
+        if (profileData.images && profileData.images.length > 0) {
+          authorImage = profileData.images[0]
+        } else if (profileData.image) {
+          authorImage = profileData.image
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar foto do perfil:', error)
+      // Continuar mesmo se falhar ao buscar foto
+    }
+    
     const post: Post = {
       id: '', //definido pelo FIRESTORE
       content: createPostDto.content,
       authorId: uid,
       authorName: authorName,
+      authorImage: authorImage,
       createdAt: now,
       updatedAt: now,
       likes: 0,

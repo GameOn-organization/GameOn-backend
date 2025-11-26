@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UsePipes, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UsePipes, Query, UseGuards } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto, createMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
+import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('messages')
+@UseGuards(AuthGuard)
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 

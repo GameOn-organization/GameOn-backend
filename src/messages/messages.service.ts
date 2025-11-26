@@ -1,88 +1,139 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { message } from './entities/message.entity';
+import { FIRESTORE } from '../firebase/firebase.providers';
 
 @Injectable()
 export class MessagesService {
-  private messages: message[] = [];
-  private idCounter = 1;
-
-  private generateId(): string {
-    return `msg_${Date.now()}_${this.idCounter++}`;
-  }
+  constructor(@Inject(FIRESTORE) private readonly db: any) {}
 
   async create(createMessageDto: CreateMessageDto): Promise<message> {
+    const now = new Date();
+    
     const newMessage: message = {
-      id: this.generateId(),
+      id: '', // será definido pelo Firestore
       conversationId: createMessageDto.conversationId,
       senderId: createMessageDto.senderId,
       text: createMessageDto.text,
-      timeStamp: createMessageDto.timeStamp || new Date(),
+      timeStamp: createMessageDto.timeStamp || now,
       read: createMessageDto.read || false
     };
 
-    this.messages.push(newMessage);
-    return newMessage;
+    // Salvar no Firestore
+    const docRef = await this.db.collection('messages').add(newMessage);
+    const createdMessage = { ...newMessage, id: docRef.id };
+    
+    // Atualizar documento com o ID
+    await docRef.update({ id: docRef.id });
+
+    // Atualizar lastMessage na conversa
+    try {
+      await this.db.collection('conversations').doc(createMessageDto.conversationId).update({
+        lastMessage: {
+          text: createMessageDto.text,
+          senderId: createMessageDto.senderId,
+          timestamp: now
+        }
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar lastMessage da conversa:', error);
+    }
+
+    return createdMessage;
   }
 
   async findAll(): Promise<message[]> {
-    return this.messages;
+    const snapshot = await this.db.collection('messages').get();
+    return snapshot.docs.map(doc => doc.data() as message);
   }
 
   async findOne(id: string): Promise<message> {
-    const message = this.messages.find(msg => msg.id === id);
+    const doc = await this.db.collection('messages').doc(id).get();
     
-    if (!message) {
+    if (!doc.exists) {
       throw new NotFoundException(`Mensagem com ID ${id} não encontrada`);
     }
 
-    return message;
+    return doc.data() as message;
   }
 
   async findByConversation(conversationId: string): Promise<message[]> {
-    return this.messages.filter(msg => msg.conversationId === conversationId);
+    const snapshot = await this.db
+      .collection('messages')
+      .where('conversationId', '==', conversationId)
+      .get();
+    
+    // Ordenar no servidor após buscar
+    const messages = snapshot.docs.map(doc => doc.data() as message);
+    return messages.sort((a, b) => {
+      const timeA = a.timeStamp instanceof Date ? a.timeStamp.getTime() : new Date(a.timeStamp).getTime();
+      const timeB = b.timeStamp instanceof Date ? b.timeStamp.getTime() : new Date(b.timeStamp).getTime();
+      return timeA - timeB; // asc
+    });
   }
 
   async findBySender(senderId: string): Promise<message[]> {
-    return this.messages.filter(msg => msg.senderId === senderId);
+    const snapshot = await this.db
+      .collection('messages')
+      .where('senderId', '==', senderId)
+      .get();
+    
+    // Ordenar no servidor após buscar
+    const messages = snapshot.docs.map(doc => doc.data() as message);
+    return messages.sort((a, b) => {
+      const timeA = a.timeStamp instanceof Date ? a.timeStamp.getTime() : new Date(a.timeStamp).getTime();
+      const timeB = b.timeStamp instanceof Date ? b.timeStamp.getTime() : new Date(b.timeStamp).getTime();
+      return timeB - timeA; // desc
+    });
   }
 
   async markAsRead(id: string): Promise<message> {
-    const messageIndex = this.messages.findIndex(msg => msg.id === id);
+    const ref = this.db.collection('messages').doc(id);
+    const doc = await ref.get();
     
-    if (messageIndex === -1) {
+    if (!doc.exists) {
       throw new NotFoundException(`Mensagem com ID ${id} não encontrada`);
     }
 
-    this.messages[messageIndex].read = true;
-    return this.messages[messageIndex];
+    await ref.update({ read: true });
+    
+    const updated = await ref.get();
+    return updated.data() as message;
   }
 
   async update(id: string, updateMessageDto: UpdateMessageDto): Promise<message> {
-    const messageIndex = this.messages.findIndex(msg => msg.id === id);
+    const ref = this.db.collection('messages').doc(id);
+    const doc = await ref.get();
     
-    if (messageIndex === -1) {
+    if (!doc.exists) {
       throw new NotFoundException(`Mensagem com ID ${id} não encontrada`);
     }
 
-    const updatedMessage: message = {
-      ...this.messages[messageIndex],
-      ...(updateMessageDto.text && { text: updateMessageDto.text }),
-      ...(updateMessageDto.read !== undefined && { read: updateMessageDto.read }),
-    };
+    const updateData: any = {};
+    
+    if (updateMessageDto.text) {
+      updateData.text = updateMessageDto.text;
+    }
+    
+    if (updateMessageDto.read !== undefined) {
+      updateData.read = updateMessageDto.read;
+    }
 
-    this.messages[messageIndex] = updatedMessage;
-    return updatedMessage;
+    await ref.update(updateData as Record<string, unknown>);
+    
+    const updated = await ref.get();
+    return updated.data() as message;
   }
 
   async remove(id: string): Promise<void> {
-    const messageIndex = this.messages.findIndex(msg => msg.id === id);
+    const ref = this.db.collection('messages').doc(id);
+    const doc = await ref.get();
     
-    if (messageIndex === -1) {
+    if (!doc.exists) {
       throw new NotFoundException(`Mensagem com ID ${id} não encontrada`);
     }
 
-    this.messages.splice(messageIndex, 1);
+    await ref.delete();
   }
 }

@@ -155,5 +155,11 @@ export class NotificationsController {
   remove(@Param('id') id: string) {
     return this.notificationsService.remove(id);
   }
+
+  @Post('cleanup-empty-ids')
+  @UseGuards(AuthGuard)
+  cleanupEmptyIds() {
+    return this.notificationsService.cleanupEmptyIds();
+  }
 }
 

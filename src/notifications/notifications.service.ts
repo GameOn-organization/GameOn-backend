@@ -322,6 +322,63 @@ export class NotificationsService {
     await ref.delete();
   }
 
+  async cleanupEmptyIds(): Promise<{
+    message: string;
+    deleted: number;
+    details: string[];
+  }> {
+    try {
+      console.log('🧹 Iniciando limpeza de notificações com ID vazio...');
+
+      // Buscar todas as notificações
+      const snapshot = await this.db.collection('notifications').get();
+      const emptyIdDocs: any[] = [];
+
+      // Identificar documentos com ID vazio ou ausente
+      snapshot.forEach((doc: any) => {
+        const data = doc.data();
+        if (!data.id || data.id === '') {
+          emptyIdDocs.push({
+            docId: doc.id,
+            data: data,
+          });
+        }
+      });
+
+      console.log(`🔍 Encontradas ${emptyIdDocs.length} notificações com ID vazio`);
+
+      if (emptyIdDocs.length === 0) {
+        return {
+          message: 'Nenhuma notificação com ID vazio encontrada',
+          deleted: 0,
+          details: [],
+        };
+      }
+
+      // Deletar notificações com ID vazio
+      const deletionPromises = emptyIdDocs.map((doc) =>
+        this.db.collection('notifications').doc(doc.docId).delete(),
+      );
+
+      await Promise.all(deletionPromises);
+
+      const details = emptyIdDocs.map((doc) => 
+        `Deletado: ${doc.data.action} para usuário ${doc.data.userId}`
+      );
+
+      console.log(`✅ ${emptyIdDocs.length} notificações deletadas`);
+
+      return {
+        message: `Limpeza concluída: ${emptyIdDocs.length} notificações deletadas`,
+        deleted: emptyIdDocs.length,
+        details: details,
+      };
+    } catch (error: any) {
+      console.error('Erro na limpeza de notificações:', error);
+      throw error;
+    }
+  }
+
   async getUnreadCount(userId: string): Promise<number> {
     const ref = this.db
       .collection('notifications')

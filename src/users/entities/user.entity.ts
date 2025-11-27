@@ -17,6 +17,10 @@ export type Profile = {
   // Novo campo: wallpaper do perfil
   wallpaper?: string | null;
   tags: string[];
+  // Sistema de likes/matches (tipo Tinder)
+  likedUsers?: string[]; // IDs dos usuários que este usuário deu like
+  likedByUsers?: string[]; // IDs dos usuários que deram like neste usuário
+  matches?: string[]; // IDs dos usuários com match mútuo
 };
 
 export class User { }

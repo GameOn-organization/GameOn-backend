@@ -99,4 +99,48 @@ export class UsersController {
   async cleanupOrphanUsers(@Request() req: any) {
     return this.usersService.cleanupOrphanUsers();
   }
+
+  // Sistema de likes/matches (tipo Tinder)
+  @Post(':id/like')
+  @UseGuards(AuthGuard)
+  async likeUser(@Param('id') targetUserId: string, @Request() req: any) {
+    const currentUserId = String(req.user.uid);
+    const result = await this.usersService.likeUser(currentUserId, targetUserId);
+    console.log('🎯 [CONTROLLER] Resultado do likeUser:', JSON.stringify(result));
+    console.log('🎯 [CONTROLLER] Has conversation?', !!result.conversation);
+    console.log('🎯 [CONTROLLER] Conversation ID:', result.conversation?.id);
+    return result;
+  }
+
+  @Get('me/matches')
+  @UseGuards(AuthGuard)
+  async getMyMatches(@Request() req: any) {
+    const currentUserId = String(req.user.uid);
+    return this.usersService.getMatches(currentUserId);
+  }
+
+  @Get('me/likes')
+  @UseGuards(AuthGuard)
+  async getMyLikes(@Request() req: any) {
+    const currentUserId = String(req.user.uid);
+    return this.usersService.getLikes(currentUserId);
+  }
+
+  @Get('test/match-response')
+  testMatchResponse() {
+    return {
+      liked: true,
+      match: true,
+      conversation: {
+        id: "test123",
+        participants: ["user1", "user2"],
+        lastMessage: {
+          text: "Test message",
+          senderId: "user1",
+          timestamp: new Date().toISOString()
+        },
+        createdAt: new Date().toISOString()
+      }
+    };
+  }
 }

@@ -7,9 +7,10 @@ import { AuthModule } from './auth/auth.module';
 import { PostsModule } from './posts/posts.module';
 import { MessagesModule } from './messages/messages.module';
 import { ConversationsModule } from './conversations/conversations.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
-  imports: [FirebaseModule, AuthModule, UsersModule, PostsModule, MessagesModule, ConversationsModule],
+  imports: [FirebaseModule, AuthModule, UsersModule, PostsModule, MessagesModule, ConversationsModule, EventsModule],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -41,11 +41,6 @@ export class UsersController {
     return this.usersService.findAll(query);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(id);
-  }
-
   @Get('me')
   @UseGuards(AuthGuard)
   getMyProfile(@Request() req: any) {
@@ -57,6 +52,16 @@ export class UsersController {
   @UsePipes(new ZodValidationPipe(UpdateUserSchema))
   updateMyProfile(@Body() updateUserDto: UpdateUserDto, @Request() req: any) {
     return this.usersService.updateMyProfile(String(req.user.uid), updateUserDto);
+  }
+
+  @Get('by-tag/:tag')
+  findByTag(@Param('tag') tag: string) {
+    return this.usersService.findByTag(tag);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.usersService.findOne(id);
   }
 
   @Patch(':id')
@@ -72,13 +77,8 @@ export class UsersController {
         formErrors: flat.formErrors,
       });
     }
-    
-    return this.usersService.update(id, validationResult.data);
-  }
 
-  @Get('by-tag/:tag')
-  findByTag(@Param('tag') tag: string) {
-    return this.usersService.findByTag(tag);
+    return this.usersService.update(id, validationResult.data);
   }
 
   @Delete(':id')
@@ -98,5 +98,23 @@ export class UsersController {
   @UseGuards(AuthGuard)
   async cleanupOrphanUsers(@Request() req: any) {
     return this.usersService.cleanupOrphanUsers();
+  }
+
+  @Post(':id/like')
+  @UseGuards(AuthGuard)
+  async likeUser(@Param('id') targetUserId: string, @Request() req: any) {
+    return this.usersService.likeUser(String(req.user.uid), targetUserId);
+  }
+
+  @Get('me/matches')
+  @UseGuards(AuthGuard)
+  async getMyMatches(@Request() req: any) {
+    return this.usersService.getMyMatches(String(req.user.uid));
+  }
+
+  @Get('me/likes')
+  @UseGuards(AuthGuard)
+  async getMyLikes(@Request() req: any) {
+    return this.usersService.getMyLikes(String(req.user.uid));
   }
 }

@@ -1,6 +1,13 @@
 export type EventLocation = {
   latitude: number;
   longitude: number;
+  cep?: string;
+  rua?: string;
+  numero?: string;
+  bairro?: string;
+  cidade?: string;
+  estado?: string;
+  // Campo combinado para retrocompatibilidade
   address?: string;
 }
 

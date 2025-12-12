@@ -4,10 +4,16 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { FIRESTORE } from '../firebase/firebase.providers';
 import { Profile } from './entities/user.entity';
 import * as admin from 'firebase-admin';
+import { ConversationsService } from '../conversations/conversations.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class UsersService {
-  constructor(@Inject(FIRESTORE) private readonly db: any) { }
+  constructor(
+    @Inject(FIRESTORE) private readonly db: any,
+    private readonly conversationsService: ConversationsService,
+    private readonly notificationsService: NotificationsService,
+  ) { }
 
   async create(createUserDto: CreateUserDto, uid: string): Promise<Profile> {
     // Se images[] foi fornecido, usar ele; caso contrário, usar image (compatibilidade retroativa)
@@ -33,7 +39,11 @@ export class UsersService {
       localizacao: createUserDto.localizacao,
       // Novo campo: wallpaper
       wallpaper: createUserDto.wallpaper || null,
-      tags: createUserDto.tags || []
+      tags: createUserDto.tags || [],
+      // Inicializar campos de likes e matches
+      likes: [],
+      likedBy: [],
+      matches: []
     } as Profile;
 
     console.log('DEBUG - Profile sendo salvo no Firestore:', JSON.stringify(profile, null, 2));
@@ -284,5 +294,164 @@ export class UsersService {
       console.error('Erro na limpeza de usuários órfãos:', error);
       throw error;
     }
+  }
+
+  async likeUser(
+    currentUserId: string,
+    targetUserId: string,
+  ): Promise<{ liked: boolean; match: boolean; conversation?: any }> {
+    const currentUserRef = this.db.collection('profiles').doc(currentUserId);
+    const targetUserRef = this.db.collection('profiles').doc(targetUserId);
+
+    const [currentUserDoc, targetUserDoc] = await Promise.all([
+      currentUserRef.get(),
+      targetUserRef.get(),
+    ]);
+
+    if (!currentUserDoc.exists) {
+      throw new NotFoundException('Seu perfil não foi encontrado');
+    }
+    if (!targetUserDoc.exists) {
+      throw new NotFoundException('Usuário alvo não encontrado');
+    }
+
+    const currentUserData = currentUserDoc.data();
+    const targetUserData = targetUserDoc.data();
+
+    const currentUserLikes = currentUserData.likes || [];
+    const targetUserLikedBy = targetUserData.likedBy || [];
+    const targetUserLikes = targetUserData.likes || [];
+
+    // Verificar se já deu like
+    if (currentUserLikes.includes(targetUserId)) {
+      return { liked: true, match: false };
+    }
+
+    // Adicionar like
+    currentUserLikes.push(targetUserId);
+    targetUserLikedBy.push(currentUserId);
+
+    // Verificar match (quando o outro usuário também deu like)
+    const isMatch = targetUserLikes.includes(currentUserId);
+
+    let conversation;
+    if (isMatch) {
+      // Adicionar aos matches
+      const currentUserMatches = currentUserData.matches || [];
+      const targetUserMatches = targetUserData.matches || [];
+
+      currentUserMatches.push(targetUserId);
+      targetUserMatches.push(currentUserId);
+
+      await Promise.all([
+        currentUserRef.update({
+          likes: currentUserLikes,
+          matches: currentUserMatches,
+        }),
+        targetUserRef.update({
+          likedBy: targetUserLikedBy,
+          matches: targetUserMatches,
+        }),
+      ]);
+
+      // Criar conversa
+      conversation = await this.conversationsService.create({
+        participantes: [currentUserId, targetUserId],
+        lastMessage: {
+          text: 'É um match! Iniciem uma conversa.',
+          senderId: 'system',
+          timestamp: new Date(),
+        },
+        createdAt: new Date(),
+      });
+
+      // Criar notificações para ambos
+      await Promise.all([
+        this.notificationsService.create({
+          userId: targetUserId,
+          fromUserId: currentUserId,
+          fromUsername: currentUserData.name || 'Usuário',
+          fromUserAvatar: currentUserData.image,
+          action: `É um match! Você e ${currentUserData.name} deram like um no outro.`,
+          category: 'MATCH',
+        }),
+        this.notificationsService.create({
+          userId: currentUserId,
+          fromUserId: targetUserId,
+          fromUsername: targetUserData.name || 'Usuário',
+          fromUserAvatar: targetUserData.image,
+          action: `É um match! Você e ${targetUserData.name} deram like um no outro.`,
+          category: 'MATCH',
+        }),
+      ]);
+    } else {
+      // Apenas atualizar likes sem match
+      await Promise.all([
+        currentUserRef.update({ likes: currentUserLikes }),
+        targetUserRef.update({ likedBy: targetUserLikedBy }),
+      ]);
+    }
+
+    return { liked: true, match: isMatch, conversation };
+  }
+
+  async getMyMatches(currentUserId: string): Promise<Profile[]> {
+    const userDoc = await this.db
+      .collection('profiles')
+      .doc(currentUserId)
+      .get();
+
+    if (!userDoc.exists) {
+      throw new NotFoundException('Seu perfil não foi encontrado');
+    }
+
+    const userData = userDoc.data();
+    const matches = userData.matches || [];
+
+    if (matches.length === 0) {
+      return [];
+    }
+
+    const matchedProfiles: Profile[] = [];
+    for (const matchId of matches) {
+      try {
+        const profile = await this.findOne(matchId);
+        matchedProfiles.push(profile);
+      } catch (error) {
+        console.error(`Erro ao buscar match ${matchId}:`, error);
+      }
+    }
+
+    return matchedProfiles;
+  }
+
+  async getMyLikes(currentUserId: string): Promise<Profile[]> {
+    const userDoc = await this.db
+      .collection('profiles')
+      .doc(currentUserId)
+      .get();
+
+    if (!userDoc.exists) {
+      throw new NotFoundException('Seu perfil não foi encontrado');
+    }
+
+    const userData = userDoc.data();
+    const likes = userData.likes || [];
+
+    if (likes.length === 0) {
+      return [];
+    }
+
+    const likedProfiles: Profile[] = [];
+    for (const likeId of likes) {
+      try {
+        const profile = await this.findOne(likeId);
+        likedProfiles.push(profile);
+      } catch (error) {
+        console.error(`Erro ao buscar like ${likeId}:`, error);
+      }
+    }
+
+    return likedProfiles;
   }
 }
